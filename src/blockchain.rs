@@ -3,7 +3,7 @@ use crate::block::Block;
 /// The actual Blockchain container
 pub struct Blockchain {
     /// Stores all the blocks which are accepted already within the blockchain
-    blocks: Vec<Block>,
+    pub blocks: Vec<Block>,
 }
 
 impl Blockchain {
@@ -34,6 +34,7 @@ mod tests {
 
     #[test]
     fn test_new_blockchain() {
+        env_logger::init();
         let mut chain = Blockchain::new();
 
         thread::sleep(Duration::from_secs(1));
