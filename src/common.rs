@@ -1,14 +1,14 @@
 use num::{BigInt, Num};
 use sha2::{Digest, Sha256};
 
-/// Append str to Vec<u8>
+/// Append str to Vec<u8>.
 pub fn append_str(buffer: &mut Vec<u8>, data: &str) {
     for value in data.bytes() {
         buffer.push(value);
     }
 }
 
-/// Append u64 to Vec<u8>
+/// Append u64 to Vec<u8>.
 pub fn append_u64(buffer: &mut Vec<u8>, data: &u64) {
     let values = data.to_be_bytes();
     for value in values {
@@ -16,12 +16,12 @@ pub fn append_u64(buffer: &mut Vec<u8>, data: &u64) {
     }
 }
 
-/// Convert hex string(hash) to BigInt
+/// Convert hex string(hash) to BigInt.
 pub fn hex_to_big_int(hex: &str) -> BigInt {
     BigInt::from_str_radix(hex, 16).unwrap()
 }
 
-/// Convert [u8] to hash
+/// Convert [u8] to hash.
 pub fn hash_utf8(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);

@@ -7,9 +7,9 @@ use std::borrow::Borrow;
 use std::cmp::Ordering;
 use std::ops::ShlAssign;
 
-/// This is an arbitrary number that takes less than 256 bits in memory
-/// Here we won't implement a target adjusting algorithm
-/// For now, so we can just define the difficulty as a global constant
+/// This is an arbitrary number that takes less than 256 bits in memory.
+/// Here we won't implement a target adjusting algorithm.
+/// For now, so we can just define the difficulty as a global constant.
 const TARGET_BITS: i32 = 8;
 
 const MAX_NONCE: u64 = u64::MAX;
@@ -19,7 +19,7 @@ pub struct ProofOfWork {
     block: Block,
 
     /// Use a big integer because of the way we'll compare a hash to the target:
-    /// we'll convert a hash to a big integer and check if it's less than the target
+    /// we'll convert a hash to a big integer and check if it's less than the target.
     target: BigInt,
 }
 
@@ -34,7 +34,7 @@ impl ProofOfWork {
         ProofOfWork { block, target }
     }
 
-    /// Merge block fields with target and nonce
+    /// Merge block fields with target and nonce.
     pub fn prepare_data(&self, nonce: u64) -> Vec<u8> {
         let mut data = vec![];
 
@@ -47,25 +47,25 @@ impl ProofOfWork {
         data
     }
 
-    /// Get the nonce which is for the requirement and hash
+    /// Get the nonce which is for the requirement and hash.
     pub fn run(&self) -> (u64, String) {
         let mut nonce: u64 = 0;
         let mut hash_res = String::new();
         debug!("Mining the block containing {}", self.block.data);
 
-        // limited by MAX_NONCE due to avoid a possible overflow of nonce
+        // limited by MAX_NONCE due to avoid a possible overflow of nonce.
         while nonce < MAX_NONCE {
             let prepare_data = self.prepare_data(nonce);
 
-            // hash the prepare data with SHA-256
+            // hash the prepare data with SHA-256.
             let hash = hash_utf8(prepare_data.as_slice());
 
-            // convert the hash(hex string) to big int
+            // convert the hash(hex string) to big int.
             let hash_int = hex_to_big_int(&hash);
 
-            // compare the integer with the target
+            // compare the integer with the target.
             // the requirement sounds like "first few bits of a hash must be zeros",
-            // and the number of zero bits depends on TARGET_BITS which is also the difficulty of mining
+            // and the number of zero bits depends on TARGET_BITS which is also the difficulty of mining.
             if hash_int.lt(self.target.borrow()) {
                 debug!("hash {:?}", hash);
                 hash_res = hash;
@@ -77,7 +77,7 @@ impl ProofOfWork {
         (nonce, hash_res)
     }
 
-    /// Validate proof of works
+    /// Validate proof of works.
     pub fn validate(&self) -> bool {
         let data = self.prepare_data(self.block.nonce);
         let hash = hash_utf8(data.as_slice());

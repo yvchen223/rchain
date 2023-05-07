@@ -2,32 +2,34 @@ use crate::proof_of_work::ProofOfWork;
 use log::debug;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// One single part of the blockchain
-/// Basically contains a list of transactions
+/// One single part of the blockchain.
+/// Basically contains a list of transactions.
 #[derive(Clone, Debug)]
 pub struct Block {
-    /// The current timestamp when the block is created
+    /// The current timestamp when the block is created.
     pub timestamp: u64,
 
-    /// The actual valuable information in the block
+    /// The actual valuable information in the block.
     pub data: String,
 
-    /// The hash of the previous block
+    /// The hash of the previous block.
     pub pre_hash: String,
 
-    /// The hash of this block, also as block headers
+    /// The hash of this block, also as block headers.
     pub hash: String,
 
+    /// The nonce from Proof-of-Work mining.
     pub nonce: u64,
 }
 
 impl Block {
-    /// New a genesis block
+    /// New a genesis block.
     pub fn new_genesis() -> Self {
         debug!("new a genesis block");
         Self::new("Genesis Block".to_owned(), String::new())
     }
 
+    /// New a block with some data and the previous hash.
     pub fn new(data: String, pre_hash: String) -> Self {
         let mut block = Block {
             data,

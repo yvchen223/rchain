@@ -1,20 +1,20 @@
 use crate::block::Block;
 
-/// The actual Blockchain container
+/// The actual Blockchain container.
 pub struct Blockchain {
-    /// Stores all the blocks which are accepted already within the blockchain
+    /// Stores all the blocks which are accepted already within the blockchain.
     pub blocks: Vec<Block>,
 }
 
 impl Blockchain {
-    /// New a genesis Blockchain
+    /// New a genesis Blockchain.
     pub fn new() -> Self {
         Blockchain {
             blocks: vec![Block::new_genesis()],
         }
     }
 
-    /// Will add a block to the Blockchain
+    /// Will add a block to the Blockchain.
     pub fn add_block(&mut self, data: String) {
         let pre_hash = self.get_last_hash();
         let block = Block::new(data, pre_hash);
