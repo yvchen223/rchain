@@ -9,7 +9,10 @@ edition = "2021"
 env_logger = "0.10.0"
 log = "0.4.17"
 num = "0.4.0"
+ron = "0.8.0"
+serde = { version = "1.0.160", features = ["derive"] }
 sha2 = "0.10.6"
+thiserror = "1.0.40"
 
 [dev-dependencies]
 data-encoding = "2.3.3"
