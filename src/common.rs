@@ -50,7 +50,7 @@ mod tests {
 
     #[test]
     fn test_hash_utf8() {
-        let data = "This is a data for test".as_bytes();
+        let data = "This is a data for tests".as_bytes();
         let hash = hash_utf8(data);
         println!("{}", hash);
     }

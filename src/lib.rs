@@ -2,9 +2,14 @@
 
 //! A blockchain building in Rust
 
-extern crate core;
+pub use block::Block;
+pub use blockchain::Blockchain;
+pub use error::Result;
+pub use proof_of_work::ProofOfWork;
 
 mod block;
 mod blockchain;
 mod common;
+mod engine;
+mod error;
 mod proof_of_work;

@@ -1,10 +1,12 @@
 use crate::proof_of_work::ProofOfWork;
-use log::debug;
+use crate::Result;
+use log::info;
+use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// One single part of the blockchain.
 /// Basically contains a list of transactions.
-#[derive(Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Block {
     /// The current timestamp when the block is created.
     pub timestamp: u64,
@@ -25,7 +27,6 @@ pub struct Block {
 impl Block {
     /// New a genesis block.
     pub fn new_genesis() -> Self {
-        debug!("new a genesis block");
         Self::new("Genesis Block".to_owned(), String::new())
     }
 
@@ -43,10 +44,22 @@ impl Block {
         };
         let pow = ProofOfWork::new(block.clone());
         let (nonce, hash) = pow.run();
-        debug!("The block get nonce {}", nonce);
+        info!("The block get nonce {}", nonce);
         block.hash = hash;
         block.nonce = nonce;
         block
+    }
+
+    /// Serialize a block to String.
+    pub fn serialize(&self) -> Result<String> {
+        let serialization = ron::to_string(&self)?;
+        Ok(serialization)
+    }
+
+    /// deserialize str to a block.
+    pub fn deserialize(value: &str) -> Result<Self> {
+        let block: Block = ron::from_str(value).map_err(|e| e.code)?;
+        Ok(block)
     }
 }
 
@@ -63,5 +76,18 @@ mod tests {
             "16C90CF81A56919922EDFC29BFE5D5E39D098B4F05A50A68568566E524B130E4".to_owned(),
         );
         println!("block {:?}", block);
+    }
+
+    #[test]
+    fn test_serialize() {
+        let block = Block::new(
+            "this is tests block".to_owned(),
+            "16C90CF81A56919922EDFC29BFE5D5E39D098B4F05A50A68568566E524B130E4".to_owned(),
+        );
+        let str = block.serialize().expect("serialize error");
+        println!("got: {}", str);
+        let new_block = Block::deserialize(&str).expect("deserialize error");
+        println!("new: {:?}", new_block);
+        assert_eq!(block, new_block);
     }
 }
