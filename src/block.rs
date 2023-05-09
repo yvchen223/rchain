@@ -1,8 +1,8 @@
 use crate::proof_of_work::ProofOfWork;
-use log::debug;
-use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 use crate::Result;
+use log::debug;
+use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 /// One single part of the blockchain.
 /// Basically contains a list of transactions.

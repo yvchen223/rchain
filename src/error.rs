@@ -4,7 +4,6 @@ use thiserror::Error;
 /// Error type for rchain.
 #[derive(Error, Debug)]
 pub enum Error {
-
     /// Serialization or deserialization error.
     #[error("serde_ron error: {0}")]
     Serde(#[from] ron::error::Error),

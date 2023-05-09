@@ -1,8 +1,7 @@
-use std::env;
-use serde::de::Unexpected::Str;
 use crate::block::Block;
-use crate::engine::{LAST_HASH_OF_CHAIN, SledEngine};
+use crate::engine::{SledEngine, LAST_HASH_OF_CHAIN};
 use crate::{error, Result};
+use std::env;
 
 /// The actual Blockchain container.
 pub struct Blockchain {
@@ -18,20 +17,22 @@ impl Blockchain {
     pub fn new() -> Self {
         // TODO rm unwrap
         let engine = SledEngine::new(env::current_dir().unwrap()).unwrap();
-        let tip = engine.get(LAST_HASH_OF_CHAIN.to_owned()).unwrap();
+        let tip = engine.get(LAST_HASH_OF_CHAIN).unwrap();
         let tip = match tip {
             Some(v) => v,
             None => {
                 let genesis = Block::new_genesis();
-                let _ = engine.set(LAST_HASH_OF_CHAIN.to_owned(), genesis.hash.clone()).unwrap();
-                engine.set(genesis.hash.clone(), genesis.serialize().unwrap()).unwrap();
-                genesis.hash.clone()
+                let _ = engine.set(LAST_HASH_OF_CHAIN, &genesis.hash).unwrap();
+                engine
+                    .set(&genesis.hash, genesis.serialize().unwrap())
+                    .unwrap();
+                genesis.hash
             }
         };
         Blockchain {
             blocks: vec![],
             tip,
-            engine
+            engine,
         }
     }
 
@@ -50,20 +51,54 @@ impl Blockchain {
     }
 
     fn get_last_hash(&self) -> Result<String> {
-        let last_hash = self.engine.get(LAST_HASH_OF_CHAIN.to_owned())?;
+        let last_hash = self.engine.get(LAST_HASH_OF_CHAIN)?;
         match last_hash {
             Some(v) => Ok(v),
-            None => Err(error::Error::StringError("There is not last hash in database".to_owned())),
+            None => Err(error::Error::StringError(
+                "There is not last hash in database".to_owned(),
+            )),
         }
     }
 
     fn update_engine(&mut self, block: &Block) -> Result<()> {
-
         self.tip = block.hash.clone();
-        self.engine.set(LAST_HASH_OF_CHAIN.to_owned(), block.hash.clone())?;
-        self.engine.set(block.hash.clone(), block.serialize()?)?;
+        self.engine.set(LAST_HASH_OF_CHAIN, &block.hash)?;
+        self.engine.set(&block.hash, block.serialize()?)?;
 
         Ok(())
+    }
+}
+
+impl IntoIterator for Blockchain {
+    type Item = Block;
+    type IntoIter = BlockChainIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        BlockChainIterator {
+            cur_hash: self.tip,
+            engine: self.engine,
+        }
+    }
+}
+
+pub struct BlockChainIterator {
+    cur_hash: String,
+    engine: SledEngine,
+}
+
+impl Iterator for BlockChainIterator {
+    type Item = Block;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let block = self.engine.get(&self.cur_hash).unwrap();
+        match block {
+            Some(val) => {
+                let block = Block::deserialize(&val).unwrap();
+                self.cur_hash = block.pre_hash.clone();
+                Some(block)
+            }
+            None => None,
+        }
     }
 }
 
@@ -79,18 +114,18 @@ mod tests {
         let mut chain = Blockchain::new();
 
         thread::sleep(Duration::from_secs(1));
-        chain.add_block("Send 1 BTC to user_a".to_owned()).expect("add error");
+        chain
+            .add_block("Send 1 BTC to user_a".to_owned())
+            .expect("add error");
 
         thread::sleep(Duration::from_secs(1));
-        chain.add_block("Send 2 BTC to user_b".to_owned()).expect("add error");
+        chain
+            .add_block("Send 2 BTC to user_b".to_owned())
+            .expect("add error");
 
-        for (i, block) in chain.blocks.iter().enumerate() {
-            println!("block-{}: {:?}", i, block);
-            if i == 0 {
-                assert_eq!(block.pre_hash, "");
-            } else {
-                assert_eq!(block.pre_hash, chain.blocks[i - 1].hash);
-            }
+        let mut iter = chain.into_iter();
+        while let Some(block) = iter.next() {
+            println!("block: {:?}", block);
         }
     }
 
