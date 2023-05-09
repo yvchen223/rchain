@@ -1,6 +1,6 @@
 use crate::block::Block;
 use crate::common::{append_str, hash_utf8, hex_to_big_int};
-use log::debug;
+use log::info;
 use num::{BigInt, Num};
 use sha2::{Digest, Sha256};
 use std::borrow::Borrow;
@@ -8,7 +8,9 @@ use std::cmp::Ordering;
 use std::ops::ShlAssign;
 
 /// This is an arbitrary number that takes less than 256 bits in memory.
+///
 /// Here we won't implement a target adjusting algorithm.
+///
 /// For now, so we can just define the difficulty as a global constant.
 const TARGET_BITS: i32 = 8;
 
@@ -19,11 +21,13 @@ pub struct ProofOfWork {
     block: Block,
 
     /// Use a big integer because of the way we'll compare a hash to the target:
+    ///
     /// we'll convert a hash to a big integer and check if it's less than the target.
     target: BigInt,
 }
 
 impl ProofOfWork {
+    /// New a proof-of-work
     pub fn new(block: Block) -> Self {
         let mut target = BigInt::from(1);
         target.shl_assign(256 - TARGET_BITS);
@@ -51,7 +55,7 @@ impl ProofOfWork {
     pub fn run(&self) -> (u64, String) {
         let mut nonce: u64 = 0;
         let mut hash_res = String::new();
-        debug!("Mining the block containing {}", self.block.data);
+        info!("Mining the block containing - {}", self.block.data);
 
         // limited by MAX_NONCE due to avoid a possible overflow of nonce.
         while nonce < MAX_NONCE {
@@ -67,7 +71,6 @@ impl ProofOfWork {
             // the requirement sounds like "first few bits of a hash must be zeros",
             // and the number of zero bits depends on TARGET_BITS which is also the difficulty of mining.
             if hash_int.lt(self.target.borrow()) {
-                debug!("hash {:?}", hash);
                 hash_res = hash;
                 break;
             }
@@ -95,6 +98,7 @@ mod tests {
     use num::Num;
     use std::thread;
     use std::time::Duration;
+    use tempfile::tempdir;
 
     #[test]
     fn test_target() {
@@ -114,7 +118,7 @@ mod tests {
     #[test]
     fn test_validate() {
         env_logger::init();
-        let mut chain = Blockchain::new();
+        let mut chain = Blockchain::new(tempdir().unwrap().into_path()).unwrap();
 
         thread::sleep(Duration::from_secs(1));
         chain.add_block("Send 1 BTC to user_a".to_owned());
@@ -122,7 +126,8 @@ mod tests {
         thread::sleep(Duration::from_secs(1));
         chain.add_block("Send 2 BTC to user_b".to_owned());
 
-        for block in chain.blocks {
+        let mut iter = chain.into_iter();
+        while let Some(block) = iter.next() {
             println!("block {:?}", block);
             let pow = ProofOfWork::new(block);
             assert!(pow.validate());

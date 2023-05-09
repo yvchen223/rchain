@@ -1,39 +1,33 @@
 use crate::block::Block;
 use crate::engine::{SledEngine, LAST_HASH_OF_CHAIN};
 use crate::{error, Result};
-use std::env;
+use log::info;
+use std::path::PathBuf;
 
 /// The actual Blockchain container.
 pub struct Blockchain {
-    /// Stores all the blocks which are accepted already within the blockchain.
-    pub blocks: Vec<Block>,
-
+    /// Hash of the last block
     pub tip: String,
+
     engine: SledEngine,
 }
 
 impl Blockchain {
     /// New a genesis Blockchain.
-    pub fn new() -> Self {
-        // TODO rm unwrap
-        let engine = SledEngine::new(env::current_dir().unwrap()).unwrap();
-        let tip = engine.get(LAST_HASH_OF_CHAIN).unwrap();
+    pub fn new(path: impl Into<PathBuf>) -> Result<Self> {
+        let engine = SledEngine::new(path)?;
+        let tip = engine.get(LAST_HASH_OF_CHAIN)?;
         let tip = match tip {
             Some(v) => v,
             None => {
+                info!("Creating a genesis block...");
                 let genesis = Block::new_genesis();
-                let _ = engine.set(LAST_HASH_OF_CHAIN, &genesis.hash).unwrap();
-                engine
-                    .set(&genesis.hash, genesis.serialize().unwrap())
-                    .unwrap();
+                let _ = engine.set(LAST_HASH_OF_CHAIN, &genesis.hash)?;
+                engine.set(&genesis.hash, genesis.serialize()?).unwrap();
                 genesis.hash
             }
         };
-        Blockchain {
-            blocks: vec![],
-            tip,
-            engine,
-        }
+        Ok(Blockchain { tip, engine })
     }
 
     /// Will add a block to the Blockchain.
@@ -107,11 +101,13 @@ mod tests {
     use super::*;
     use std::thread;
     use std::time::Duration;
+    use tempfile::tempdir;
 
     #[test]
     fn test_new_blockchain() {
         env_logger::init();
-        let mut chain = Blockchain::new();
+        let path = tempdir().unwrap().into_path();
+        let mut chain = Blockchain::new(path).unwrap();
 
         thread::sleep(Duration::from_secs(1));
         chain
@@ -133,13 +129,14 @@ mod tests {
     fn test_tip_in_new_blockchain() {
         let tip_1;
         let tip_2;
+        let path = tempdir().unwrap().into_path();
         {
-            let mut chain = Blockchain::new();
+            let mut chain = Blockchain::new(&path).unwrap();
             println!("tip 1 = {}", chain.tip);
             tip_1 = chain.tip.clone();
         }
         {
-            let mut chain = Blockchain::new();
+            let mut chain = Blockchain::new(&path).unwrap();
             println!("tip 2 = {}", chain.tip);
             tip_2 = chain.tip.clone();
         }

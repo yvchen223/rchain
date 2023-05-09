@@ -1,6 +1,6 @@
 use crate::proof_of_work::ProofOfWork;
 use crate::Result;
-use log::debug;
+use log::info;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -27,7 +27,6 @@ pub struct Block {
 impl Block {
     /// New a genesis block.
     pub fn new_genesis() -> Self {
-        debug!("new a genesis block");
         Self::new("Genesis Block".to_owned(), String::new())
     }
 
@@ -45,7 +44,7 @@ impl Block {
         };
         let pow = ProofOfWork::new(block.clone());
         let (nonce, hash) = pow.run();
-        debug!("The block get nonce {}", nonce);
+        info!("The block get nonce {}", nonce);
         block.hash = hash;
         block.nonce = nonce;
         block
@@ -82,7 +81,7 @@ mod tests {
     #[test]
     fn test_serialize() {
         let block = Block::new(
-            "this is test block".to_owned(),
+            "this is tests block".to_owned(),
             "16C90CF81A56919922EDFC29BFE5D5E39D098B4F05A50A68568566E524B130E4".to_owned(),
         );
         let str = block.serialize().expect("serialize error");

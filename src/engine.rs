@@ -13,7 +13,7 @@ pub const LAST_HASH_OF_CHAIN: &str = "l";
 /// The database that stores persistent blockchain
 #[derive(Debug, Clone)]
 pub struct SledEngine {
-    sled: sled::Db,
+    //sled: sled::Db,
     block_tree: sled::Tree,
 }
 
@@ -24,7 +24,7 @@ impl SledEngine {
         let db = sled::open(path)?;
         let block_tree = db.open_tree(BLOCK_TREE)?;
         Ok(SledEngine {
-            sled: db,
+            //sled: db,
             block_tree,
         })
     }

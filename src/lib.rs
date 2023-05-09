@@ -2,7 +2,10 @@
 
 //! A blockchain building in Rust
 
+pub use block::Block;
+pub use blockchain::Blockchain;
 pub use error::Result;
+pub use proof_of_work::ProofOfWork;
 
 mod block;
 mod blockchain;
