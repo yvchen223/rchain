@@ -13,3 +13,4 @@ mod common;
 mod engine;
 mod error;
 mod proof_of_work;
+mod transaction;

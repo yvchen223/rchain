@@ -8,19 +8,36 @@ fn main() {
     match matches.subcommand() {
         Some(("ls", _)) => {
             let path = current_dir().unwrap();
-            let chain = Blockchain::new(path).unwrap();
+            let address = path.file_name().expect("filename").to_str().expect("file");
+            let chain = Blockchain::new(&path, address.to_owned()).unwrap();
+
 
             print_chain(chain);
         }
         Some(("add", sub_matches)) => {
             let path = current_dir().unwrap();
-            let mut chain = Blockchain::new(path).unwrap();
+            let address = path.file_name().expect("filename").to_str().expect("file");
+            let mut chain = Blockchain::new(&path, address.to_owned()).unwrap();
 
-            let data = sub_matches.get_one::<String>("DATA").expect("require");
-            chain.add_block(data.to_owned()).expect("err");
+            // let data = sub_matches.get_one::<String>("DATA").expect("require");
+            // chain.add_block(data.to_owned()).expect("err");
 
             print_chain(chain);
-        }
+        },
+        Some(("balance", sub_matches)) => {
+            let user = sub_matches.get_one::<String>("ADDRESS").expect("address");
+
+            let path = current_dir().unwrap();
+            let address = path.file_name().expect("filename").to_str().expect("file");
+            let chain = Blockchain::new(&path, address.to_owned()).unwrap();
+
+            let mut balance  = 0;
+            let utxo = chain.find_utxo(user.to_owned());
+            for (_, v) in utxo {
+                balance += v.iter().fold(0, |acc, x| acc + x.value);
+            }
+            println!("balance: {}", balance);
+        },
         _ => panic!("no implemented"),
     }
 }
@@ -30,7 +47,7 @@ fn print_chain(chain: Blockchain) {
     for block in iter {
         println!("pre_hash: {}", block.pre_hash);
         println!("hash: {}", block.hash);
-        println!("data: {}", block.data);
+        println!("transaction: {:?}", block.transactions);
         println!("nonce: {}", block.nonce);
         println!("timestamp: {}", block.timestamp);
         let pow = ProofOfWork::new(block.clone());
@@ -54,5 +71,11 @@ fn cli() -> Command {
                 .about("add a new block to blockchain")
                 .arg_required_else_help(true)
                 .arg(arg!([DATA] "data")),
+        )
+        .subcommand(
+            Command::new("balance")
+                .about("show the balance of the address.")
+                .arg_required_else_help(true)
+                .arg(arg!([ADDRESS] "address"))
         )
 }
