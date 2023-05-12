@@ -1,5 +1,5 @@
-use clap::{arg, Command};
-use rchain::{Blockchain, ProofOfWork};
+use clap::{arg, Arg, Command};
+use rchain::{Blockchain, ProofOfWork, Transaction};
 use std::env::current_dir;
 
 fn main() {
@@ -10,20 +10,8 @@ fn main() {
             let path = current_dir().unwrap();
             let address = path.file_name().expect("filename").to_str().expect("file");
             let chain = Blockchain::new(&path, address.to_owned()).unwrap();
-
-
-            print_chain(chain);
+            print_chain(&chain);
         }
-        Some(("add", sub_matches)) => {
-            let path = current_dir().unwrap();
-            let address = path.file_name().expect("filename").to_str().expect("file");
-            let mut chain = Blockchain::new(&path, address.to_owned()).unwrap();
-
-            // let data = sub_matches.get_one::<String>("DATA").expect("require");
-            // chain.add_block(data.to_owned()).expect("err");
-
-            print_chain(chain);
-        },
         Some(("balance", sub_matches)) => {
             let user = sub_matches.get_one::<String>("ADDRESS").expect("address");
 
@@ -31,19 +19,30 @@ fn main() {
             let address = path.file_name().expect("filename").to_str().expect("file");
             let chain = Blockchain::new(&path, address.to_owned()).unwrap();
 
-            let mut balance  = 0;
-            let utxo = chain.find_utxo(user.to_owned());
+            let mut balance = 0;
+            let utxo = chain.find_utxo(user);
             for (_, v) in utxo {
-                balance += v.iter().fold(0, |acc, x| acc + x.value);
+                balance += v.iter().fold(0, |acc, (_, x)| acc + x.value);
             }
             println!("balance: {}", balance);
-        },
+        }
+        Some(("send", sub_match)) => {
+            let from = sub_match.get_one::<String>("FROM").expect("from");
+            let to = sub_match.get_one::<String>("TO").expect("to");
+            let amount: i64 = *sub_match.get_one::<i64>("AMOUNT").expect("amount");
+            let mut chain = Blockchain::new(current_dir().unwrap(), from.to_owned()).unwrap();
+
+            let tx = Transaction::new(from, to, amount, &chain).unwrap();
+            chain.mine_block(vec![tx]).unwrap();
+
+            print_chain(&chain);
+        }
         _ => panic!("no implemented"),
     }
 }
 
-fn print_chain(chain: Blockchain) {
-    let iter = chain.into_iter();
+fn print_chain(chain: &Blockchain) {
+    let iter = chain.iter();
     for block in iter {
         println!("pre_hash: {}", block.pre_hash);
         println!("hash: {}", block.hash);
@@ -67,15 +66,19 @@ fn cli() -> Command {
         .arg_required_else_help(true)
         .subcommand(Command::new("ls").about("list the blockchain store in this directory"))
         .subcommand(
-            Command::new("add")
-                .about("add a new block to blockchain")
-                .arg_required_else_help(true)
-                .arg(arg!([DATA] "data")),
-        )
-        .subcommand(
             Command::new("balance")
                 .about("show the balance of the address.")
                 .arg_required_else_help(true)
-                .arg(arg!([ADDRESS] "address"))
+                .arg(arg!([ADDRESS] "address")),
+        )
+        .subcommand(
+            Command::new("send")
+                .about("send coins from someone to another.")
+                .arg_required_else_help(true)
+                .args([
+                    arg!([FROM] "from"),
+                    arg!([TO] "to"),
+                    Arg::new("AMOUNT").value_parser(clap::value_parser!(i64)),
+                ]),
         )
 }

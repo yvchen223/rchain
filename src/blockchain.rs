@@ -1,12 +1,13 @@
-use std::collections::HashMap;
 use crate::block::Block;
 use crate::engine::{SledEngine, LAST_HASH_OF_CHAIN};
+use crate::transaction::{TXOutput, Transaction};
 use crate::{error, Result};
 use log::info;
+use std::collections::HashMap;
 use std::path::PathBuf;
-use crate::transaction::{Transaction, TXOutput};
 
-const GENESIS_COINBASE_DATA: &str = "The Times 03/Jan/2009 Chancellor on brink of second bailout for bank";
+const GENESIS_COINBASE_DATA: &str =
+    "The Times 03/Jan/2009 Chancellor on brink of second bailout for bank";
 
 /// The actual Blockchain container.
 pub struct Blockchain {
@@ -35,8 +36,8 @@ impl Blockchain {
         Ok(Blockchain { tip, engine })
     }
 
-    /// Will add a block to the Blockchain.
-    pub fn add_block(&mut self, transactions: Vec<Transaction>) -> Result<()> {
+    /// Will mine a block to the Blockchain.
+    pub fn mine_block(&mut self, transactions: Vec<Transaction>) -> Result<()> {
         // Get the last block hash from db
         let pre_hash = self.get_last_hash()?;
 
@@ -76,7 +77,7 @@ impl Blockchain {
     }
 
     /// Find unspent transaction outputs.
-    pub fn find_utxo(&self, address: String) -> HashMap<String, Vec<TXOutput>> {
+    pub fn find_utxo(&self, address: &str) -> HashMap<String, Vec<(usize, TXOutput)>> {
         let mut iter = self.iter();
         let mut spent_txos: HashMap<String, Vec<usize>> = HashMap::new();
 
@@ -91,15 +92,15 @@ impl Blockchain {
                     // Check if an output was already referenced in an input.
                     // Skip those that were referenced in inputs(their values were moved to other outputs,
                     // thus we cannot count them).
-                    if let Some(mut idxs) = spent_txos.get(&tx.id) {
+                    if let Some(idxs) = spent_txos.get(&tx.id) {
                         if idxs.contains(&out_idx) {
                             continue;
                         }
                     }
 
-                    if output.can_be_unlocked_with(address.clone()) {
+                    if output.can_be_unlocked_with(address.to_owned()) {
                         let outs_idx = utxo.entry(tx.id.clone()).or_insert(vec![]);
-                        outs_idx.push(output.clone());
+                        outs_idx.push((out_idx, output.clone()));
                     }
                 }
 
@@ -107,7 +108,7 @@ impl Blockchain {
                 if !tx.is_coinbase() {
                     // We gather all inputs that could unlock outputs locked with the provided address.
                     for input in tx.vin {
-                        if input.can_unlock_output_with(address.clone()) {
+                        if input.can_unlock_output_with(address.to_owned()) {
                             let idxs = spent_txos.entry(input.tx_id.clone()).or_insert(vec![]);
                             idxs.push(input.idx_vout);
                         }
@@ -115,8 +116,36 @@ impl Blockchain {
                 }
             }
         }
-
         utxo
+    }
+
+    /// Iterate over all unspent transactions and accumulate their values.
+    /// When the accumulated value is more or equal to the amount we want to transfer, it returns.
+    /// Return the accumulated value and map(K -> tx_id, V -> the vector of output index in the transaction).
+    pub fn find_spendable_outputs(
+        &self,
+        address: &str,
+        amount: i64,
+    ) -> (i64, HashMap<String, Vec<usize>>) {
+        let mut outputs_idx = HashMap::new();
+        let mut acc = 0;
+
+        let utxo = self.find_utxo(address);
+
+        'find_acc: for (tx_id, outputs) in utxo {
+            for (output_idx, output) in outputs {
+                if output.can_be_unlocked_with(address.to_owned()) && acc < amount {
+                    acc += output.value;
+                    let entry = outputs_idx.entry(tx_id.clone()).or_insert(vec![]);
+                    entry.push(output_idx);
+
+                    if acc >= amount {
+                        break 'find_acc;
+                    }
+                }
+            }
+        }
+        (acc, outputs_idx)
     }
 }
 
@@ -151,7 +180,4 @@ impl Iterator for BlockChainIterator {
             None => None,
         }
     }
-
 }
-
-

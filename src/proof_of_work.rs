@@ -1,7 +1,7 @@
 use crate::block::Block;
 use crate::common::{append_str, hash_utf8, hex_to_big_int};
 use log::info;
-use num::{BigInt, Num};
+use num::BigInt;
 use sha2::{Digest, Sha256};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -43,7 +43,10 @@ impl ProofOfWork {
         let mut data = vec![];
 
         append_str(&mut data, self.block.pre_hash.as_str());
-        append_str(&mut data, self.block.serialize_transactions().unwrap().as_str());
+        append_str(
+            &mut data,
+            self.block.serialize_transactions().unwrap().as_str(),
+        );
         append_str(&mut data, format!("{:x}", self.block.timestamp).as_str());
         append_str(&mut data, format!("{:x}", TARGET_BITS).as_str());
         append_str(&mut data, format!("{:x}", nonce).as_str());
@@ -89,5 +92,3 @@ impl ProofOfWork {
         hash_int.cmp(&self.target) == Ordering::Less
     }
 }
-
-

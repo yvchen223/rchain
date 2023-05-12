@@ -8,14 +8,6 @@ pub fn append_str(buffer: &mut Vec<u8>, data: &str) {
     }
 }
 
-/// Append u64 to Vec<u8>.
-pub fn append_u64(buffer: &mut Vec<u8>, data: &u64) {
-    let values = data.to_be_bytes();
-    for value in values {
-        buffer.push(value);
-    }
-}
-
 /// Convert hex string(hash) to BigInt.
 pub fn hex_to_big_int(hex: &str) -> BigInt {
     BigInt::from_str_radix(hex, 16).unwrap()
