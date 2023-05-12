@@ -15,16 +15,6 @@ fn cli_ls_chain() {
         .success();
 }
 
-#[test]
-fn cli_add() {
-    let temp_dir = TempDir::new().unwrap();
-    Command::cargo_bin("rchain")
-        .unwrap()
-        .args(&["add", "add_data"])
-        .current_dir(&temp_dir)
-        .assert()
-        .stdout(contains("add_data"));
-}
 
 #[test]
 fn cli_invalid_subcommand() {
@@ -66,19 +56,75 @@ fn cli_invalid_ls() {
 }
 
 #[test]
-fn cli_invalid_add() {
+fn cli_balance() {
     let temp_dir = TempDir::new().unwrap();
+    let genesis_address = temp_dir.path().file_name().unwrap().to_str().unwrap();
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["add"])
+        .args(&["balance", genesis_address])
         .current_dir(&temp_dir)
         .assert()
-        .failure();
+        .stdout(contains("10"));
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["add", "data1", "data2"])
+        .args(&["balance", "who"])
         .current_dir(&temp_dir)
         .assert()
-        .failure();
+        .stdout(contains("0"));
 }
+
+#[test]
+fn cli_send() {
+    let temp_dir = TempDir::new().unwrap();
+    let genesis_address = temp_dir.path().file_name().unwrap().to_str().unwrap();
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["send", genesis_address, "b", "5"])
+        .current_dir(&temp_dir)
+        .assert()
+        .success();
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["send", genesis_address, "c", "5"])
+        .current_dir(&temp_dir)
+        .assert()
+        .success();
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["balance", genesis_address])
+        .current_dir(&temp_dir)
+        .assert()
+        .stdout(contains("0"));
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["balance", "b"])
+        .current_dir(&temp_dir)
+        .assert()
+        .stdout(contains("5"));
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["balance", "c"])
+        .current_dir(&temp_dir)
+        .assert()
+        .stdout(contains("5"));
+}
+
+#[test]
+fn cli_send_no_enough() {
+    let temp_dir = TempDir::new().unwrap();
+    let genesis_address = temp_dir.path().file_name().unwrap().to_str().unwrap();
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["send", genesis_address, "b", "15"])
+        .current_dir(&temp_dir)
+        .assert()
+        .stderr(contains("NoEnoughBalance"));
+}
+
