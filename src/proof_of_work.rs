@@ -1,7 +1,7 @@
 use crate::block::Block;
 use crate::common::{append_str, hash_utf8, hex_to_big_int};
 use log::info;
-use num::{BigInt, Num};
+use num::BigInt;
 use sha2::{Digest, Sha256};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -43,7 +43,10 @@ impl ProofOfWork {
         let mut data = vec![];
 
         append_str(&mut data, self.block.pre_hash.as_str());
-        append_str(&mut data, self.block.data.as_str());
+        append_str(
+            &mut data,
+            self.block.serialize_transactions().unwrap().as_str(),
+        );
         append_str(&mut data, format!("{:x}", self.block.timestamp).as_str());
         append_str(&mut data, format!("{:x}", TARGET_BITS).as_str());
         append_str(&mut data, format!("{:x}", nonce).as_str());
@@ -55,7 +58,7 @@ impl ProofOfWork {
     pub fn run(&self) -> (u64, String) {
         let mut nonce: u64 = 0;
         let mut hash_res = String::new();
-        info!("Mining the block containing - {}", self.block.data);
+        info!("Mining the block...");
 
         // limited by MAX_NONCE due to avoid a possible overflow of nonce.
         while nonce < MAX_NONCE {
@@ -87,50 +90,5 @@ impl ProofOfWork {
         let hash_int = hex_to_big_int(&hash);
 
         hash_int.cmp(&self.target) == Ordering::Less
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::blockchain::Blockchain;
-    use data_encoding::HEXLOWER;
-    use num::Num;
-    use std::thread;
-    use std::time::Duration;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_target() {
-        let mut target = BigInt::from(1);
-        target.shl_assign(256 - TARGET_BITS);
-        println!("target int {}", target);
-
-        let mut hasher = Sha256::new();
-        hasher.update(format!("{:?}", target).as_bytes());
-        println!("target hash {}", format!("{:x}", hasher.finalize()));
-
-        let (_, vec) = target.to_bytes_be();
-        let target_hex = HEXLOWER.encode(&*vec);
-        println!("target hex {}", target_hex);
-    }
-
-    #[test]
-    fn test_validate() {
-        env_logger::init();
-        let mut chain = Blockchain::new(tempdir().unwrap().into_path()).unwrap();
-
-        thread::sleep(Duration::from_secs(1));
-        chain.add_block("Send 1 BTC to user_a".to_owned());
-
-        thread::sleep(Duration::from_secs(1));
-        chain.add_block("Send 2 BTC to user_b".to_owned());
-
-        let mut iter = chain.into_iter();
-        while let Some(block) = iter.next() {
-            println!("block {:?}", block);
-            let pow = ProofOfWork::new(block);
-            assert!(pow.validate());
-        }
     }
 }

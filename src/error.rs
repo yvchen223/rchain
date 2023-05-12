@@ -19,6 +19,10 @@ pub enum Error {
     /// We can arbitrarily define content.
     #[error("{0}")]
     StringError(String),
+
+    /// There is no enough balance in the account.
+    #[error("no enough balance")]
+    NoEnoughBalance,
 }
 
 /// Alias for a Result with the error type Error.
