@@ -2,7 +2,7 @@ use crate::error::Error::NoEnoughBalance;
 use crate::Blockchain;
 use crate::Result;
 use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::common::hash_str;
 
 /// The subsidy of mining a block.
 const SUBSIDY: i64 = 10;
@@ -146,11 +146,19 @@ impl Transaction {
     }
 
     fn set_id(&mut self) {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-        self.id = timestamp.to_string();
+
+        self.id = self.hash();
+    }
+
+    fn hash(&self) -> String {
+        let str = self.serialize().unwrap();
+        hash_str(str)
+    }
+
+    /// Serialize a transaction to String.
+    fn serialize(&self) -> Result<String> {
+        let serialization = ron::to_string(&self)?;
+        Ok(serialization)
     }
 
     /// Is a coinbase transaction.

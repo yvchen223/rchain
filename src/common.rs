@@ -21,6 +21,15 @@ pub fn hash_utf8(data: &[u8]) -> String {
     format!("{:x}", hasher.finalize())
 }
 
+/// Convert str to hash.
+pub fn hash_str(data: impl Into<String>) -> String {
+    let data = data.into();
+    let mut hasher = Sha256::new();
+    hasher.update(&data);
+
+    format!("{:x}", hasher.finalize())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
