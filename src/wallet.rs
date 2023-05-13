@@ -1,3 +1,5 @@
+//! Wallet.
+
 use p256::pkcs8::EncodePrivateKey;
 use p256::SecretKey;
 use rand_core::OsRng;
@@ -11,14 +13,14 @@ const ADDRESS_CHECKSUM_LEN: usize = 4;
 
 /// Basic wallet.
 #[derive(Clone, Debug)]
-struct Wallet {
+pub struct Wallet {
     private_key: String,
     public_key: String,
 }
 
 impl Wallet {
     /// New a wallet.
-    fn new() -> Self {
+    pub fn new() -> Self {
         let (private_key, public_key) = Self::new_key_pair();
         Wallet {
             private_key,
@@ -41,8 +43,8 @@ impl Wallet {
 
     /// Calculate an address that is a real Bitcoin address.
     /// We can even check its balance on https://blockchain.info/.
-    fn address(&self) -> String {
-        let pub_key_hash = self.hash_pub_key();
+    pub fn address(&self) -> String {
+        let pub_key_hash = Self::hash_pub_key(self.public_key.as_bytes());
 
         // Check sum.
         let mut versioned_payload = vec![VERSION];
@@ -57,8 +59,8 @@ impl Wallet {
     }
 
     /// Take the public key and hash it twice with `RIPEMD160(SHA256(public_key))`.
-    fn hash_pub_key(&self) -> Vec<u8> {
-        let pub_key_sha256 = sha256_digest(self.public_key.as_bytes());
+    pub fn hash_pub_key(public_key: &[u8]) -> Vec<u8> {
+        let pub_key_sha256 = sha256_digest(public_key);
         ripemd160_digest(&pub_key_sha256)
     }
 

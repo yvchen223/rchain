@@ -98,7 +98,7 @@ impl Blockchain {
                         }
                     }
 
-                    if output.can_be_unlocked_with(address.to_owned()) {
+                    if output.is_locked_with_key(address) {
                         let outs_idx = utxo.entry(tx.id.clone()).or_insert(vec![]);
                         outs_idx.push((out_idx, output.clone()));
                     }
@@ -108,7 +108,7 @@ impl Blockchain {
                 if !tx.is_coinbase() {
                     // We gather all inputs that could unlock outputs locked with the provided address.
                     for input in tx.vin {
-                        if input.can_unlock_output_with(address.to_owned()) {
+                        if input.use_key(address) {
                             let idxs = spent_txos.entry(input.tx_id.clone()).or_insert(vec![]);
                             idxs.push(input.idx_vout);
                         }
@@ -134,7 +134,7 @@ impl Blockchain {
 
         'find_acc: for (tx_id, outputs) in utxo {
             for (output_idx, output) in outputs {
-                if output.can_be_unlocked_with(address.to_owned()) && acc < amount {
+                if output.is_locked_with_key(address) && acc < amount {
                     acc += output.value;
                     let entry = outputs_idx.entry(tx_id.clone()).or_insert(vec![]);
                     entry.push(output_idx);

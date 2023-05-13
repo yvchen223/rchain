@@ -3,6 +3,9 @@ use assert_cmd::prelude::*;
 use predicates::str::contains;
 use std::process::Command;
 use tempfile::TempDir;
+use rchain::wallet::Wallet;
+
+const INIT_ADDRESS: &str = "1FbkP5rheSAtFonCjoNikSofyrGNHMUqzA";
 
 #[test]
 fn cli_ls_chain() {
@@ -58,10 +61,10 @@ fn cli_invalid_ls() {
 #[test]
 fn cli_balance() {
     let temp_dir = TempDir::new().unwrap();
-    let genesis_address = temp_dir.path().file_name().unwrap().to_str().unwrap();
+    let address = INIT_ADDRESS.to_owned();
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["balance", genesis_address])
+        .args(&["balance", &address])
         .current_dir(&temp_dir)
         .assert()
         .stdout(contains("10"));
@@ -77,39 +80,41 @@ fn cli_balance() {
 #[test]
 fn cli_send() {
     let temp_dir = TempDir::new().unwrap();
-    let genesis_address = temp_dir.path().file_name().unwrap().to_str().unwrap();
+
+    let address_1 = Wallet::new().address();
+    let address_2 = Wallet::new().address();
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["send", genesis_address, "b", "5"])
+        .args(&["send", INIT_ADDRESS, &address_1, "5"])
         .current_dir(&temp_dir)
         .assert()
         .success();
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["send", genesis_address, "c", "5"])
+        .args(&["send", INIT_ADDRESS, &address_2, "5"])
         .current_dir(&temp_dir)
         .assert()
         .success();
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["balance", genesis_address])
+        .args(&["balance", INIT_ADDRESS])
         .current_dir(&temp_dir)
         .assert()
         .stdout(contains("0"));
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["balance", "b"])
+        .args(&["balance", &address_1])
         .current_dir(&temp_dir)
         .assert()
         .stdout(contains("5"));
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["balance", "c"])
+        .args(&["balance", &address_2])
         .current_dir(&temp_dir)
         .assert()
         .stdout(contains("5"));
@@ -118,11 +123,11 @@ fn cli_send() {
 #[test]
 fn cli_send_no_enough() {
     let temp_dir = TempDir::new().unwrap();
-    let genesis_address = temp_dir.path().file_name().unwrap().to_str().unwrap();
+    let address = Wallet::new().address();
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["send", genesis_address, "b", "15"])
+        .args(&["send", INIT_ADDRESS, &address, "15"])
         .current_dir(&temp_dir)
         .assert()
         .stderr(contains("NoEnoughBalance"));

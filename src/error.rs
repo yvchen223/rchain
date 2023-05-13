@@ -1,4 +1,5 @@
 use std::str::Utf8Error;
+use std::string::FromUtf8Error;
 use thiserror::Error;
 
 /// Error type for rchain.
@@ -13,8 +14,12 @@ pub enum Error {
     Sled(#[from] sled::Error),
 
     /// From convert [u8] to str
-    #[error("from utf8 error: {0}")]
+    #[error("utf8 error: {0}")]
     Utf8(#[from] Utf8Error),
+
+    /// From convert [u8] to String
+    #[error("utf8 to String error: {0}")]
+    FromUtf8(#[from] FromUtf8Error),
 
     /// We can arbitrarily define content.
     #[error("{0}")]

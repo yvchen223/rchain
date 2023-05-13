@@ -1,23 +1,21 @@
 use clap::{arg, Arg, Command};
 use rchain::{Blockchain, ProofOfWork, Transaction};
 use std::env::current_dir;
+use rchain::wallet::Wallet;
 
 fn main() {
     env_logger::init();
+    let path = current_dir().unwrap();
+    let init_address = "1FbkP5rheSAtFonCjoNikSofyrGNHMUqzA";
+    let mut chain = Blockchain::new(&path, init_address.to_owned()).unwrap();
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("ls", _)) => {
-            let path = current_dir().unwrap();
-            let address = path.file_name().expect("filename").to_str().expect("file");
-            let chain = Blockchain::new(&path, address.to_owned()).unwrap();
+
             print_chain(&chain);
         }
         Some(("balance", sub_matches)) => {
             let user = sub_matches.get_one::<String>("ADDRESS").expect("address");
-
-            let path = current_dir().unwrap();
-            let address = path.file_name().expect("filename").to_str().expect("file");
-            let chain = Blockchain::new(&path, address.to_owned()).unwrap();
 
             let mut balance = 0;
             let utxo = chain.find_utxo(user);
@@ -30,12 +28,17 @@ fn main() {
             let from = sub_match.get_one::<String>("FROM").expect("from");
             let to = sub_match.get_one::<String>("TO").expect("to");
             let amount: i64 = *sub_match.get_one::<i64>("AMOUNT").expect("amount");
-            let mut chain = Blockchain::new(current_dir().unwrap(), from.to_owned()).unwrap();
 
             let tx = Transaction::new(from, to, amount, &chain).unwrap();
             chain.mine_block(vec![tx]).unwrap();
 
             print_chain(&chain);
+        }
+        Some(("create-wallet", _)) => {
+            let wallet = Wallet::new();
+            let address = wallet.address();
+            println!("wallet: {:?}", wallet);
+            println!("address: {}", address);
         }
         _ => panic!("no implemented"),
     }
@@ -80,5 +83,9 @@ fn cli() -> Command {
                     arg!([TO] "to"),
                     Arg::new("AMOUNT").value_parser(clap::value_parser!(i64)),
                 ]),
+        )
+        .subcommand(
+            Command::new("create-wallet")
+                .about("create a wallet.")
         )
 }

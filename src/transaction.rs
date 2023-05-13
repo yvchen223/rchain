@@ -2,7 +2,9 @@ use crate::error::Error::NoEnoughBalance;
 use crate::Blockchain;
 use crate::Result;
 use serde::{Deserialize, Serialize};
-use crate::common::hash_str;
+use crate::common::{base58_decode, hash_str};
+use crate::error::Error;
+use crate::wallet::Wallet;
 
 /// The subsidy of mining a block.
 const SUBSIDY: i64 = 10;
@@ -13,16 +15,50 @@ pub struct TXOutput {
     /// Stores the number of coins.
     pub value: i64,
 
-    /// Stores a puzzle that locks the value.
-    ///
-    /// Now it is an arbitrary string.
-    pub script_pub_key: String,
+
+    /// The public key hash in output.
+    pub_key_hash: Vec<u8>,
 }
 
 impl TXOutput {
-    /// Check if the output can be unlocked with the data and spend it.
-    pub fn can_be_unlocked_with(&self, unlocking_data: String) -> bool {
-        self.script_pub_key == unlocking_data
+
+    pub fn new(value: i64, address: &str) -> Result<Self> {
+        let pub_key_hash = Self::get_pub_key_hash(address)?;
+        let tx_out = TXOutput {
+            value,
+            pub_key_hash,
+        };
+        Ok(tx_out)
+    }
+
+    fn get_pub_key_hash(address: &str) -> Result<Vec<u8>> {
+        let full_hash = base58_decode(address)?;
+        if full_hash.len() < 4 {
+            return Err(Error::StringError("lock with an invalid address.".to_owned()));
+        }
+        /// Take out the version and the checksum.
+        let pub_key_hash = full_hash[1..full_hash.len() - 4].to_vec();
+        Ok(pub_key_hash)
+    }
+
+    pub fn lock(&mut self, address: &str) -> Result<()> {
+        let pub_key_hash = Self::get_pub_key_hash(address)?;
+        self.pub_key_hash = pub_key_hash;
+        Ok(())
+    }
+
+    /// Check if provided public key hash was used to lock the output.
+    pub fn is_locked_with_key(&self, address: &str) -> bool {
+        let full_hash = match base58_decode(address) {
+            Ok(v) => v,
+            Err(_) => return false,
+        };
+        if full_hash.len() < 4 {
+            return false;
+        }
+        /// Take out the version and the checksum.
+        let pub_key_hash = full_hash[1..full_hash.len() - 4].to_vec();
+        self.pub_key_hash.eq(&pub_key_hash)
     }
 }
 
@@ -43,13 +79,19 @@ pub struct TXInput {
     /// This is the mechanism that guarantees that users cannot spend coins belonging to other people.
     ///
     /// Now it is just an arbitrary string.
-    pub script_sig: String,
+    // pub script_sig: String,
+
+    signature: String,
+    /// Raw public key.
+    pub public_key: String,
 }
 
 impl TXInput {
-    /// Check if it can unlocked the output with the data.
-    pub fn can_unlock_output_with(&self, unlocking_data: String) -> bool {
-        self.script_sig == unlocking_data
+
+    /// Check if someone with the public key hash can use the input.
+    pub fn use_key(&self, pub_key_hash: &str) -> bool {
+        //let locking_hash = Wallet::hash_pub_key(&self.public_key);
+        self.public_key.eq(pub_key_hash)
     }
 }
 
@@ -80,12 +122,10 @@ impl Transaction {
         let tx_in = TXInput {
             tx_id: String::new(),
             idx_vout: 0,
-            script_sig: data,
+            signature: String::new(),
+            public_key: data.clone(),
         };
-        let tx_out = TXOutput {
-            value: SUBSIDY,
-            script_pub_key: to,
-        };
+        let tx_out = TXOutput::new(SUBSIDY, &to).unwrap();
 
         let mut tx = Transaction {
             id: String::new(),
@@ -114,7 +154,8 @@ impl Transaction {
                 let input = TXInput {
                     tx_id: tx_id.clone(),
                     idx_vout: idx,
-                    script_sig: from.to_owned(),
+                    public_key: from.to_owned(),
+                    signature: String::new(),
                 };
                 inputs.push(input);
             }
@@ -122,16 +163,16 @@ impl Transaction {
 
         // Build a list of outputs
         // Locked with the receiver address.This is the actual transferring of coins to other address.
-        outputs.push(TXOutput {
+        let mut output = TXOutput {
             value: amount,
-            script_pub_key: to.to_owned(),
-        });
+            pub_key_hash: vec![],
+        };
+        output.lock(to)?;
+        outputs.push(output);
         if acc > amount {
             // Locked with the sender address.This is a change.
-            outputs.push(TXOutput {
-                value: acc - amount,
-                script_pub_key: from.to_owned(),
-            });
+            let output = TXOutput::new(acc - amount, from).unwrap();
+            outputs.push(output);
         }
 
         let mut tx = Transaction {

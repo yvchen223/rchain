@@ -15,4 +15,4 @@ mod engine;
 mod error;
 mod proof_of_work;
 mod transaction;
-mod wallet;
+pub mod wallet;
