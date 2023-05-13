@@ -1,9 +1,9 @@
 use assert_cmd::cargo::CommandCargoExt;
 use assert_cmd::prelude::*;
 use predicates::str::contains;
+use rchain::wallet::{Wallet, Wallets};
 use std::process::Command;
 use tempfile::TempDir;
-use rchain::wallet::Wallet;
 
 const INIT_ADDRESS: &str = "1FbkP5rheSAtFonCjoNikSofyrGNHMUqzA";
 
@@ -17,7 +17,6 @@ fn cli_ls_chain() {
         .assert()
         .success();
 }
-
 
 #[test]
 fn cli_invalid_subcommand() {
@@ -81,29 +80,51 @@ fn cli_balance() {
 fn cli_send() {
     let temp_dir = TempDir::new().unwrap();
 
-    let address_1 = Wallet::new().address();
-    let address_2 = Wallet::new().address();
+    let init_address;
+    let address_1;
+    let address_2;
+    {
+        let wallets = Wallets::with_path(temp_dir.path());
+
+        let init_wallet = Wallet::new();
+        init_address = init_wallet.address();
+        wallets.set(&init_wallet).unwrap();
+
+        let wallet1 = Wallet::new();
+        address_1 = wallet1.address();
+        wallets.set(&wallet1).unwrap();
+        let wallet2 = Wallet::new();
+        address_2 = wallet2.address();
+        wallets.set(&wallet2).unwrap();
+    }
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["send", INIT_ADDRESS, &address_1, "5"])
+        .args(&["create-blockchain", &init_address])
         .current_dir(&temp_dir)
         .assert()
         .success();
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["send", INIT_ADDRESS, &address_2, "5"])
+        .args(&["send", &init_address, &address_1, "5"])
         .current_dir(&temp_dir)
         .assert()
         .success();
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["balance", INIT_ADDRESS])
+        .args(&["send", &init_address, &address_2, "4"])
         .current_dir(&temp_dir)
         .assert()
-        .stdout(contains("0"));
+        .success();
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["balance", &init_address])
+        .current_dir(&temp_dir)
+        .assert()
+        .stdout(contains("1"));
 
     Command::cargo_bin("rchain")
         .unwrap()
@@ -117,19 +138,37 @@ fn cli_send() {
         .args(&["balance", &address_2])
         .current_dir(&temp_dir)
         .assert()
-        .stdout(contains("5"));
+        .stdout(contains("4"));
 }
 
 #[test]
 fn cli_send_no_enough() {
     let temp_dir = TempDir::new().unwrap();
-    let address = Wallet::new().address();
+    let init_address;
+    let address_1;
+    {
+        let wallets = Wallets::with_path(temp_dir.path());
+
+        let init_wallet = Wallet::new();
+        init_address = init_wallet.address();
+        wallets.set(&init_wallet).unwrap();
+
+        let wallet1 = Wallet::new();
+        address_1 = wallet1.address();
+        wallets.set(&wallet1).unwrap();
+    }
 
     Command::cargo_bin("rchain")
         .unwrap()
-        .args(&["send", INIT_ADDRESS, &address, "15"])
+        .args(&["create-blockchain", &init_address])
+        .current_dir(&temp_dir)
+        .assert()
+        .success();
+
+    Command::cargo_bin("rchain")
+        .unwrap()
+        .args(&["send", &init_address, &address_1, "15"])
         .current_dir(&temp_dir)
         .assert()
         .stderr(contains("NoEnoughBalance"));
 }
-

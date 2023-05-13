@@ -29,8 +29,13 @@ pub enum Error {
     #[error("no enough balance")]
     NoEnoughBalance,
 
+    /// Base58 decode error.
     #[error("base58 decode error: {0}")]
-    Base58Decode(#[from] bs58::decode::Error)
+    Base58Decode(#[from] bs58::decode::Error),
+
+    /// Invalid transaction.
+    #[error("invalid transaction: {0}")]
+    InvalidTransaction(String),
 }
 
 /// Alias for a Result with the error type Error.

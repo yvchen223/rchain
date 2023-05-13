@@ -1,6 +1,8 @@
 use crate::block::Block;
-use crate::engine::{SledEngine, LAST_HASH_OF_CHAIN};
+use crate::engine::{SledEngine, BLOCK_TREE, LAST_HASH_OF_CHAIN};
+use crate::error::Error::StringError;
 use crate::transaction::{TXOutput, Transaction};
+use crate::wallet::{Wallet, Wallets};
 use crate::{error, Result};
 use log::info;
 use std::collections::HashMap;
@@ -15,29 +17,58 @@ pub struct Blockchain {
     pub tip: String,
 
     engine: SledEngine,
+
+    /// wa.
+    wallets: Wallets,
 }
 
 impl Blockchain {
     /// New a genesis Blockchain.
-    pub fn new(path: impl Into<PathBuf>, address: String) -> Result<Self> {
-        let engine = SledEngine::new(path)?;
+    pub fn new(path: impl Into<PathBuf>, address: &str) -> Result<Self> {
+        let path = path.into();
+        let db = sled::open(path)?;
+        let engine = SledEngine::new(BLOCK_TREE, &db)?;
+        let wallets = Wallets::new(&db);
         let tip = engine.get(LAST_HASH_OF_CHAIN)?;
         let tip = match tip {
             Some(v) => v,
             None => {
                 info!("Creating a genesis block...");
-                let cbtx = Transaction::new_coinbase_tx(address, GENESIS_COINBASE_DATA.to_owned());
+                let cbtx = Transaction::new_coinbase_tx(
+                    address.to_owned(),
+                    GENESIS_COINBASE_DATA.to_owned(),
+                );
                 let genesis = Block::new_genesis(cbtx);
                 let _ = engine.set(LAST_HASH_OF_CHAIN, &genesis.hash)?;
                 engine.set(&genesis.hash, genesis.serialize()?).unwrap();
                 genesis.hash
             }
         };
-        Ok(Blockchain { tip, engine })
+        Ok(Blockchain {
+            tip,
+            engine,
+            wallets,
+        })
+    }
+
+    /// Get wallet.
+    pub fn get_wallet(&self, address: &str) -> Result<Option<Wallet>> {
+        self.wallets.get(address)
+    }
+
+    /// Return the refer of the wallets.
+    pub fn wallets(&self) -> &Wallets {
+        &self.wallets
     }
 
     /// Will mine a block to the Blockchain.
     pub fn mine_block(&mut self, transactions: Vec<Transaction>) -> Result<()> {
+        for tx in &transactions {
+            if !self.verify_transaction(tx)? {
+                return Err(StringError("verify err".to_owned()));
+            }
+        }
+
         // Get the last block hash from db
         let pre_hash = self.get_last_hash()?;
 
@@ -77,7 +108,7 @@ impl Blockchain {
     }
 
     /// Find unspent transaction outputs.
-    pub fn find_utxo(&self, address: &str) -> HashMap<String, Vec<(usize, TXOutput)>> {
+    pub fn find_utxo(&self, pub_key_hash: &[u8]) -> HashMap<String, Vec<(usize, TXOutput)>> {
         let mut iter = self.iter();
         let mut spent_txos: HashMap<String, Vec<usize>> = HashMap::new();
 
@@ -98,7 +129,7 @@ impl Blockchain {
                         }
                     }
 
-                    if output.is_locked_with_key(address) {
+                    if output.is_locked_with_key(pub_key_hash) {
                         let outs_idx = utxo.entry(tx.id.clone()).or_insert(vec![]);
                         outs_idx.push((out_idx, output.clone()));
                     }
@@ -108,7 +139,7 @@ impl Blockchain {
                 if !tx.is_coinbase() {
                     // We gather all inputs that could unlock outputs locked with the provided address.
                     for input in tx.vin {
-                        if input.use_key(address) {
+                        if input.use_key(pub_key_hash) {
                             let idxs = spent_txos.entry(input.tx_id.clone()).or_insert(vec![]);
                             idxs.push(input.idx_vout);
                         }
@@ -130,11 +161,13 @@ impl Blockchain {
         let mut outputs_idx = HashMap::new();
         let mut acc = 0;
 
-        let utxo = self.find_utxo(address);
+        let pub_key_hash = Transaction::pub_key_hash_from_address(address);
+
+        let utxo = self.find_utxo(&pub_key_hash);
 
         'find_acc: for (tx_id, outputs) in utxo {
             for (output_idx, output) in outputs {
-                if output.is_locked_with_key(address) && acc < amount {
+                if output.is_locked_with_key(&pub_key_hash) && acc < amount {
                     acc += output.value;
                     let entry = outputs_idx.entry(tx_id.clone()).or_insert(vec![]);
                     entry.push(output_idx);
@@ -146,6 +179,40 @@ impl Blockchain {
             }
         }
         (acc, outputs_idx)
+    }
+
+    fn get_transaction(&self, tx_id: &str) -> Option<Transaction> {
+        let iter = self.iter();
+        for block in iter {
+            for tx in &block.transactions {
+                if tx.id.eq(tx_id) {
+                    return Some(tx.clone());
+                }
+            }
+        }
+        None
+    }
+
+    /// Sign the transaction.
+    pub fn sign_transaction(&self, transaction: &mut Transaction, private_key: &str) {
+        let mut prev_txs = HashMap::new();
+        for vin in &transaction.vin {
+            let prev_tx = self.get_transaction(&vin.tx_id).unwrap();
+            prev_txs.insert(prev_tx.id.clone(), prev_tx);
+        }
+        transaction.sign(private_key, prev_txs)
+    }
+
+    fn verify_transaction(&self, transaction: &Transaction) -> Result<bool> {
+        let mut prev_txs = HashMap::new();
+        for vin in &transaction.vin {
+            let prev_tx = self
+                .get_transaction(&vin.tx_id)
+                .ok_or(StringError(format!("no such tx {}", vin.tx_id)))?;
+            prev_txs.insert(prev_tx.id.clone(), prev_tx);
+        }
+        let res = transaction.verify(prev_txs)?;
+        Ok(res)
     }
 }
 

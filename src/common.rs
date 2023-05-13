@@ -1,7 +1,7 @@
+use crate::Result;
 use num::{BigInt, Num};
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
-use crate::Result;
 
 /// Append str to Vec<u8>.
 pub fn append_str(buffer: &mut Vec<u8>, data: &str) {
@@ -34,23 +34,26 @@ pub fn hash_str(data: impl Into<String>) -> String {
 
 /// Encode str to base58.
 pub fn base58_encode(data: &[u8]) -> String {
-    bs58::encode(data).with_alphabet(bs58::Alphabet::BITCOIN).into_string()
+    bs58::encode(data)
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_string()
 }
 
 pub fn base58_decode(data: &str) -> Result<Vec<u8>> {
-    let v = bs58::decode(data).with_alphabet(bs58::Alphabet::BITCOIN).into_vec()?;
+    let v = bs58::decode(data)
+        .with_alphabet(bs58::Alphabet::BITCOIN)
+        .into_vec()?;
     Ok(v)
 }
 
 /// Calculate SHA256 hash.
 pub fn sha256_digest(data: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
-    hasher.update(&data);
+    hasher.update(data);
 
     let res = hasher.finalize();
     res[..].into()
 }
-
 
 /// Calculate ripemd160 hash.
 pub fn ripemd160_digest(data: &[u8]) -> Vec<u8> {
