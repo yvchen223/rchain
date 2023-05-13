@@ -1,4 +1,5 @@
 use num::{BigInt, Num};
+use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 
 /// Append str to Vec<u8>.
@@ -28,6 +29,29 @@ pub fn hash_str(data: impl Into<String>) -> String {
     hasher.update(&data);
 
     format!("{:x}", hasher.finalize())
+}
+
+/// Encode str to base58.
+pub fn base58_encode(data: &[u8]) -> String {
+    bs58::encode(data).into_string()
+}
+
+/// Calculate SHA256 hash.
+pub fn sha256_digest(data: &[u8]) -> Vec<u8> {
+    let mut hasher = Sha256::new();
+    hasher.update(&data);
+
+    let res = hasher.finalize();
+    res[..].into()
+}
+
+
+/// Calculate ripemd160 hash.
+pub fn ripemd160_digest(data: &[u8]) -> Vec<u8> {
+    let mut hasher = Ripemd160::new();
+    hasher.update(data);
+    let res = hasher.finalize();
+    res[..].into()
 }
 
 #[cfg(test)]

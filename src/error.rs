@@ -23,6 +23,9 @@ pub enum Error {
     /// There is no enough balance in the account.
     #[error("no enough balance")]
     NoEnoughBalance,
+
+    #[error("base58 decode error: {0}")]
+    Base58Decode(#[from] bs58::decode::Error)
 }
 
 /// Alias for a Result with the error type Error.
