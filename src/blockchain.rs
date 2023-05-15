@@ -27,8 +27,8 @@ impl Blockchain {
     pub fn new(path: impl Into<PathBuf>, address: &str) -> Result<Self> {
         let path = path.into();
         let db = sled::open(path)?;
-        let engine = SledEngine::new(BLOCK_TREE, &db)?;
-        let wallets = Wallets::new(&db);
+        let engine = SledEngine::with_db(BLOCK_TREE, &db)?;
+        let wallets = Wallets::with_db(&db);
         let tip = engine.get(LAST_HASH_OF_CHAIN)?;
         let tip = match tip {
             Some(v) => v,

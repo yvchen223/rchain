@@ -1,12 +1,12 @@
 use crate::Result;
 use std::borrow::ToOwned;
+use std::env::current_dir;
+use std::path::PathBuf;
 use std::str::from_utf8;
 use std::string::ToString;
 
 /// The isolated keyspace that stores block data.
 pub const BLOCK_TREE: &str = "block_tree";
-
-pub const WALLETS_TREE: &str = "wallets_tree";
 
 /// The key that stores the last block hash of the chain.
 pub const LAST_HASH_OF_CHAIN: &str = "l";
@@ -18,8 +18,23 @@ pub struct SledEngine {
 }
 
 impl SledEngine {
-    /// Input a path of directory and return database
-    pub fn new(tree_name: &str, db: &sled::Db) -> Result<Self> {
+    /// New a default SledEngine in current directory.
+    pub fn new(tree_name: &str) -> Result<Self> {
+        let db = sled::open(current_dir().unwrap())?;
+        let tree = db.open_tree(tree_name)?;
+        Ok(SledEngine { tree })
+    }
+
+    /// New a SledEngine with sled db.
+    pub fn with_db(tree_name: &str, db: &sled::Db) -> Result<Self> {
+        let tree = db.open_tree(tree_name)?;
+        Ok(SledEngine { tree })
+    }
+
+    /// New a SledEngine with a path.
+    pub fn with_path(path: impl Into<PathBuf>, tree_name: &str) -> Result<Self> {
+        let path = path.into();
+        let db = sled::open(path)?;
         let tree = db.open_tree(tree_name)?;
         Ok(SledEngine { tree })
     }
@@ -55,7 +70,7 @@ impl SledEngine {
         }
     }
 
-    /// list.
+    /// List all wallets that have benn stored.
     pub fn list(&self) -> Vec<(String, String)> {
         let mut vec = vec![];
         let iter = self.tree.iter();

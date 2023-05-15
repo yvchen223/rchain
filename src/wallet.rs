@@ -1,7 +1,7 @@
 //! Wallet.
 
 use crate::common::{base58_encode, ripemd160_digest, sha256_digest};
-use crate::engine::{SledEngine, WALLETS_TREE};
+use crate::engine::SledEngine;
 use crate::Result;
 use p256::pkcs8::EncodePrivateKey;
 use p256::SecretKey;
@@ -117,23 +117,29 @@ impl Default for Wallet {
     }
 }
 
+const WALLETS_TREE: &str = "wallets_tree";
+
 /// Wallets.
 pub struct Wallets {
     wallets: SledEngine,
 }
 
 impl Wallets {
+    /// New wallets in current directory.
+    pub fn new() -> Result<Self> {
+        let wallets = SledEngine::new(WALLETS_TREE)?;
+        Ok(Wallets { wallets })
+    }
+
     /// New wallets with sled db.
-    pub fn new(db: &sled::Db) -> Self {
-        let wallets = SledEngine::new(WALLETS_TREE, db).unwrap();
+    pub fn with_db(db: &sled::Db) -> Self {
+        let wallets = SledEngine::with_db(WALLETS_TREE, db).unwrap();
         Wallets { wallets }
     }
 
     /// New wallets with path.
     pub fn with_path(path: impl Into<PathBuf>) -> Self {
-        let path = path.into();
-        let db = sled::open(path).unwrap();
-        let wallets = SledEngine::new(WALLETS_TREE, &db).unwrap();
+        let wallets = SledEngine::with_path(path, WALLETS_TREE).unwrap();
         Wallets { wallets }
     }
 
@@ -179,7 +185,6 @@ mod tests {
     use p256::ecdsa::signature::{Signer, Verifier};
     use p256::ecdsa::{Signature, SigningKey, VerifyingKey};
     use p256::pkcs8::EncodePrivateKey;
-    use p256::PublicKey;
     use p256::SecretKey;
     use rand_core::OsRng;
 
